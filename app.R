@@ -49,22 +49,30 @@ fav_tracks <- function() {
 }
 
 ## favorite artists join from previous function
-fav_tracks_artists <- function(fav_tracks) {
-    temp <-
-    fav_tracks %>%
+fav_tracks_artists <- function(prev) {
+    view(temp) <-
+    prev %>%
         select(artists) %>%
         reduce(rbind) %>%
         reduce(rbind) %>%
-        select(id, name)
+        select(name, popularity)
     
-    temp <- temp %>%
-        count(id, sort = TRUE) %>%
-        left_join(fav_tracks, by = c('id', 'album.id')) %>%
-        unique() %>%
+    temp <-
+    temp %>%
+        select(name, album.name, popularity)
+    
+    prev <- temp %>%
+        full_join(prev, by = 'id') # %>%
+       # count(id, sort = TRUE) %>%
+       # unique() %>%
        # select(-id) %>%
-        top_n(20, n)
+       # top_n(20, n)
     
-    return(temp)
+    prev <- prev %>%
+        full_join(temp, by = 'id') %>%
+        select(name, name.x, album.name.y, popularity.y)
+    
+    return(prev)
 }
 
 
