@@ -126,3 +126,5 @@ foo %>%
   kable(format = 'html',escape=F) %>% 
   kable_styling("striped", full_width = F, position = "left",bootstrap_options = c("striped", "hover", "condensed", "responsive"))
 
+
+
