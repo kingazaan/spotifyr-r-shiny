@@ -58,6 +58,10 @@ audio_features_fav_artist <- function(artist_name) {
         distinct(.data$track_name, .keep_all= TRUE)
 }
 
+## datatablify audio_features
+sentiment_datatable <- function(artist_name) {
+    datatable(audio_features_fav_artist(artist_name)) %>% formatStyle(c('artist_name', 'track_name', 'album_name', 'danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo') ,color = 'black')
+}
 
 # ## favorite tracks table function
 # fav_tracks <- function() {
@@ -128,30 +132,40 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  br(), br(), br(), br(), br(), br(), br(), br(), 
                                  h4("Some more insight on your top artists:"),
                                  DT::dataTableOutput("favorite_artists_table"),
+                                 br(), br()
                                  # DT::dataTableOutput("favorite_tracks_table"),
                              ), # mainPanel
                              
                              
                     ), # Navbar 3, tabPanel
                     tabPanel("Sentiment",
-                             sidebarPanel(
-                                 selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name)
-                             ), # sidebarPanel
+                             # absolutePanel(
+                             #     selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name)
+                             # ), # sidebarPanel
                              mainPanel(
+                                 absolutePanel(
+                                     selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name),
+                                     selectInput("sentiment_type", "Choose one sentiment type: ", c('danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo'))
+                                 ),
+                                 br(), br(), br(), br(), br(),
                                  h4("Let's take a look at the audio features for your most popular artists"),
-                                 h3("Energy"),
-                                 plotOutput(outputId = "energy_plot_output"),
+                                 textOutput("sentiment_text"),
+                                 plotOutput(outputId = "sentiment_plot_output"),
                                  br(), br(),
                                  h5("The most energetic song by this artist is:"),
-                                 textOutput("most_energetic"),
+                                 textOutput("most_sentiment"),
                                  h5("The least energetic song by this artist is:"),
-                                 textOutput("least_energetic"),
-                                 h3("Positivity (Valence)"),
-                                 plotOutput(outputId = "valence_plot_output"),
-                                 h5("The most positive song by this artist is:"),
-                                 textOutput("most_positive"),
-                                 h5("The least positive song by this artist is:"),
-                                 textOutput("least_positive")
+                                 textOutput("least_sentiment"),
+                                 # h3("Positivity (Valence)"),
+                                 # plotOutput(outputId = "valence_plot_output"),
+                                 # h5("The most positive song by this artist is:"),
+                                 # textOutput("most_positive"),
+                                 # h5("The least positive song by this artist is:"),
+                                 # textOutput("least_positive"),
+                                 
+                                 # DT::dataTableOutput("sentiment_table"),
+                                 
+                                 br(), br()
                              ), # mainPanel
                              
                              
@@ -185,13 +199,13 @@ server <- function(input, output) {
             xlab("Artist Name") + ylab("Popularity Score")
     })
     
-    output$follower_plot_output  <- renderPlotly({
+    output$follower_plot_output <- renderPlotly({
         data <- popularity_data()
         data$follow_percent <- data$followers / sum(data$followers)
         # ggplot(data=data, aes(x="", y=follow_percent, fill=name)) + 
         #     geom_bar(width = 1, stat = "identity") + 
         #     coord_polar("y", start=0)
-        plot_ly(data=data, labels = ~name, values = ~follow_percent, type = 'pie', textposition = 'inside', textinfo = 'label+percent', width = 500, height = 550) %>%
+        plot_ly(data=data, labels = ~name, values = ~follow_percent, type = 'pie', textposition = 'inside', textinfo = 'label+percent', width = 550, height = 550) %>%
             layout(autosize = T,
                    xaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE),
                    yaxis = list(showgrid = FALSE, zeroline = FALSE, showticklabels = FALSE))
@@ -202,52 +216,80 @@ server <- function(input, output) {
     # TABPANEL #3
     ## hella important, basically a global variable lowkey
     sentiment_data <- reactive({ audio_features_fav_artist(as.character(input$artist_name)) })
-
-    output$energy_plot_output <- renderPlot({ 
-        data <- sentiment_data() %>% arrange(desc(energy))
-        ggplot(data = data, aes(x = energy, y = fct_rev(album_name), fill = stat(x))) + 
+    sentiment_datatable_reactive <- reactive({ sentiment_datatable(input$artist_name) })
+    
+    output$sentiment_text <- renderText({ input$sentiment_type })
+    
+    output$sentiment_plot_output <- renderPlot({ 
+        data <- sentiment_data() %>% arrange(desc(input$sentiment_type))
+        ggplot(data = data, aes(x = input$sentiment_type, y = fct_rev(album_name), fill = stat(x))) + 
             geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
-            scale_fill_viridis_c(name = "Energy", option = "D") + 
+            scale_fill_viridis_c(name = input$sentiment_type, option = "D") + 
             theme_ridges(font_size = 12, center_axis_labels = TRUE) +
             scale_x_continuous(expand = c(0.01, 0)) +
-            labs(title= paste(input$artist_name ,"'s Energy by Album", sep=""), y ="Album", x = "Energy")
+            labs(title= paste(input$sentiment_type, " by Album", sep=""), y ="Album", x = input$sentiment_type)
     })
     
-    output$most_energetic <- renderText({
-        data <- sentiment_data() %>% arrange(desc(energy))
-        paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$energy[1], sep="")
-    })
-
-    output$least_energetic <- renderText({
-        data <- sentiment_data() %>% arrange(energy)
-        paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$energy[1], sep="")
-    })
-        
-    output$valence_plot_output <- renderPlot({ 
-        data <- sentiment_data() %>% arrange(desc(valence))
-        ggplot(data = data, aes(x = valence, y = fct_rev(album_name), fill = stat(x))) + 
-            geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
-            scale_fill_viridis_c(name = "Positivity", option = "A") + 
-            theme_ridges(font_size = 12, center_axis_labels = TRUE) +
-            scale_x_continuous(expand = c(0.01, 0)) +
-            labs(title= paste(input$artist_name ,"'s Positivity (Valence) by Album", sep=""), y="Album", x = "Positivity")
+    output$most_sentiment <- renderText({
+        data <- sentiment_data() %>% arrange(desc(input$sentiment_type))
+        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data$input$sentiment_type[1], sep="")
     })
     
-    output$most_positive <- renderText({
-        data <- sentiment_data() %>% arrange(desc(valence))
-        paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$valence[1], sep="")
+    output$least_sentiment <- renderText({
+        data <- sentiment_data() %>% arrange(input$sentiment_type)
+        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data$input$sentiment_type[1], sep="")
     })
     
-    output$least_positive <- renderText({
-        data <- sentiment_data() %>% arrange(valence)
-        paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$valence[1], sep="")
-    })
+    # output$energy_plot_output <- renderPlot({ 
+    #     data <- sentiment_data() %>% arrange(desc(energy))
+    #     ggplot(data = data, aes(x = energy, y = fct_rev(album_name), fill = stat(x))) + 
+    #         geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
+    #         scale_fill_viridis_c(name = "Energy", option = "D") + 
+    #         theme_ridges(font_size = 12, center_axis_labels = TRUE) +
+    #         scale_x_continuous(expand = c(0.01, 0)) +
+    #         labs(title= paste(input$artist_name ,"'s Energy by Album", sep=""), y ="Album", x = "Energy")
+    # })
+    # 
+    # output$most_energetic <- renderText({
+    #     data <- sentiment_data() %>% arrange(desc(energy))
+    #     paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$energy[1], sep="")
+    # })
+    # 
+    # output$least_energetic <- renderText({
+    #     data <- sentiment_data() %>% arrange(energy)
+    #     paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$energy[1], sep="")
+    # })
+    #     
+    # output$valence_plot_output <- renderPlot({ 
+    #     data <- sentiment_data() %>% arrange(desc(valence))
+    #     ggplot(data = data, aes(x = valence, y = fct_rev(album_name), fill = stat(x))) + 
+    #         geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
+    #         scale_fill_viridis_c(name = "Positivity", option = "A") + 
+    #         theme_ridges(font_size = 12, center_axis_labels = TRUE) +
+    #         scale_x_continuous(expand = c(0.01, 0)) +
+    #         labs(title= paste(input$artist_name ,"'s Positivity (Valence) by Album", sep=""), y="Album", x = "Positivity")
+    # })
+    # 
+    # output$most_positive <- renderText({
+    #     data <- sentiment_data() %>% arrange(desc(valence))
+    #     paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$valence[1], sep="")
+    # })
+    # 
+    # output$least_positive <- renderText({
+    #     data <- sentiment_data() %>% arrange(valence)
+    #     paste(paste(data$track_name[1], " with an energy score of ", sep=""), data$valence[1], sep="")
+    # })
     
+    
+    
+    # output$sentiment_table <- DT::renderDataTable({ sentiment_datatable_reactive() }) %>% bindEvent(validate)
     
 } # server
 
 
 # Create Shiny object
 shinyApp(ui = ui, server = server)
+
+
 
 
