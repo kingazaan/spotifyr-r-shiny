@@ -18,7 +18,7 @@ library(DT)
 library(reshape2)
 library(plotly)
 library(ggridges)
-
+library(httr)
 
 # Create functions to make plots
 
@@ -30,8 +30,6 @@ authenticate <- function(id, secret) {
     
     access_token <- get_spotify_access_token()
 }
-
-
 
 ## favorite artists table function
 fav_artists <- function() {
@@ -143,18 +141,24 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                              #     selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name)
                              # ), # sidebarPanel
                              mainPanel(
-                                 absolutePanel(
-                                     selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name),
-                                     selectInput("sentiment_type", "Choose one sentiment type: ", c('danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo'))
+                                 fluidRow(
+                                     column(width = 6,
+                                            selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name),
+                                     ),
+                                     column(width = 6,
+                                            selectInput("sentiment_type", "Choose one sentiment type: ", c('danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo'))
+                                     ),
                                  ),
-                                 br(), br(), br(), br(), br(),
+                                 # absolutePanel(
+                                 #     selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name),
+                                 #     selectInput("sentiment_type", "Choose one sentiment type: ", c('danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo')),
                                  h4("Let's take a look at the audio features for your most popular artists"),
                                  textOutput("sentiment_text"),
                                  plotOutput(outputId = "sentiment_plot_output"),
                                  br(), br(),
-                                 h5("The most energetic song by this artist is:"),
+                                 h5("The highest sentiment song for this category by this artist is:"),
                                  textOutput("most_sentiment"),
-                                 h5("The least energetic song by this artist is:"),
+                                 h5("The least sentiment song for this category by this artist is:"),
                                  textOutput("least_sentiment"),
                                  # h3("Positivity (Valence)"),
                                  # plotOutput(outputId = "valence_plot_output"),
@@ -221,23 +225,26 @@ server <- function(input, output) {
     output$sentiment_text <- renderText({ input$sentiment_type })
     
     output$sentiment_plot_output <- renderPlot({ 
-        data <- sentiment_data() %>% arrange(desc(input$sentiment_type))
-        ggplot(data = data, aes(x = input$sentiment_type, y = fct_rev(album_name), fill = stat(x))) + 
+        text <- input$sentiment_type
+        data <- sentiment_data() %>% arrange(desc(.data[[text]]))
+        ggplot(data = data, aes(x = .data[[text]], y = fct_rev(album_name), fill = stat(x))) + 
             geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
-            scale_fill_viridis_c(name = input$sentiment_type, option = "D") + 
+            scale_fill_viridis_c(name = text, option = "D") + 
             theme_ridges(font_size = 12, center_axis_labels = TRUE) +
             scale_x_continuous(expand = c(0.01, 0)) +
-            labs(title= paste(input$sentiment_type, " by Album", sep=""), y ="Album", x = input$sentiment_type)
+            labs(title= paste(data[[text]], " by Album", sep=""), y ="Album", x = data[[text]])
     })
     
     output$most_sentiment <- renderText({
-        data <- sentiment_data() %>% arrange(desc(input$sentiment_type))
-        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data$input$sentiment_type[1], sep="")
+        text <- input$sentiment_type
+        data <- sentiment_data() %>% arrange(desc(.data[[text]]))
+        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data[[text]][1], sep="")
     })
     
     output$least_sentiment <- renderText({
-        data <- sentiment_data() %>% arrange(input$sentiment_type)
-        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data$input$sentiment_type[1], sep="")
+        text <- input$sentiment_type
+        data <- sentiment_data() %>% arrange(.data[[text]])
+        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data[[text]][1], sep="")
     })
     
     # output$energy_plot_output <- renderPlot({ 
