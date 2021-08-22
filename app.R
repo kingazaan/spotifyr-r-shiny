@@ -51,14 +51,15 @@ fav_artists_datatable <- function() {
 
 # audio features for top artists table function
 audio_features_fav_artist <- function(artist_name) {
-    get_artist_audio_features(artist = artist_name, return_closest_artist = TRUE) %>% 
-        select(.data$artist_name, .data$track_name, .data$album_name, .data$danceability, .data$energy, .data$loudness, .data$speechiness, .data$acousticness, .data$liveness, .data$valence, .data$tempo) %>% 
+    get_artist_audio_features(artist = "Aesop Rock", return_closest_artist = TRUE) %>% 
+        rename(positivity = valence) %>% 
+        select(.data$artist_name, .data$track_name, .data$album_name, .data$danceability, .data$energy, .data$loudness, .data$speechiness, .data$acousticness, .data$liveness, .data$positivity, .data$tempo) %>% 
         distinct(.data$track_name, .keep_all= TRUE)
 }
 
 ## datatablify audio_features
 sentiment_datatable <- function(artist_name) {
-    datatable(audio_features_fav_artist(artist_name)) %>% formatStyle(c('artist_name', 'track_name', 'album_name', 'danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo') ,color = 'black')
+    datatable(audio_features_fav_artist(artist_name)) %>% formatStyle(c('artist_name', 'track_name', 'album_name', 'danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'positivity', 'tempo') ,color = 'black')
 }
 
 # ## favorite tracks table function
@@ -105,7 +106,7 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                     # theme = "cerulean",  # <--- To use a theme, uncomment this
                     "Spotify User Analysis",
                     # Havbar 1, tabPanel
-                    tabPanel("User Stats",
+                    tabPanel("Intro",
                              sidebarPanel(
                                  tags$h3("Input:"),
                                  textInput("id", "Client ID:", ""), # txt1 sent to the server
@@ -125,7 +126,7 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                              mainPanel(
                                  h4("Let's see how popular your favorite artists are on spotify"),
                                  plotOutput(outputId = "popularity_plot_output"),
-                                 h4("We can also so how they compare to eachother, in terms of popularity"),
+                                 h4("We can also see how they compare to eachother, in terms of amount of followers"),
                                  plotlyOutput(outputId = "follower_plot_output"),
                                  br(), br(), br(), br(), br(), br(), br(), br(), 
                                  h4("Some more insight on your top artists:"),
@@ -146,19 +147,37 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                             selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name),
                                      ),
                                      column(width = 6,
-                                            selectInput("sentiment_type", "Choose one sentiment type: ", c('danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo'))
+                                            selectInput("sentiment_type", "Choose one sentiment type: ", c('Danceability', 'Energy', 'Loudness', 'Speechiness', 'Acousticness', 'Liveness', 'Positivity', 'Tempo'))
                                      ),
                                  ),
                                  # absolutePanel(
                                  #     selectInput("artist_name", "Choose one of your top artists: ", fav_artists()$name),
                                  #     selectInput("sentiment_type", "Choose one sentiment type: ", c('danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'valence', 'tempo')),
                                  h4("Let's take a look at the audio features for your most popular artists"),
+                                 tags$style("#sentiment_text
+                                    {font-size: 30px;
+                                    color: white;
+                                    display: block;
+                                    text-align: center;
+                                    padding-bottom: 10px}"),
                                  textOutput("sentiment_text"),
                                  plotOutput(outputId = "sentiment_plot_output"),
                                  br(), br(),
-                                 h5("The highest sentiment song for this category by this artist is:"),
+                                 h6("The highest scoring song for this category is:"),
+                                 tags$style("#most_sentiment
+                                    {font-size: 20px;
+                                    color: white;
+                                    display: block;
+                                    text-align: right;
+                                    padding-bottom: 10px}"),
                                  textOutput("most_sentiment"),
-                                 h5("The least sentiment song for this category by this artist is:"),
+                                 h6("The lowest scoring song for this category is:"),
+                                 tags$style("#least_sentiment
+                                    {font-size: 20px;
+                                    color: white;
+                                    display: block;
+                                    text-align: right;
+                                    padding-bottom: 10px}"),
                                  textOutput("least_sentiment"),
                                  # h3("Positivity (Valence)"),
                                  # plotOutput(outputId = "valence_plot_output"),
@@ -174,7 +193,13 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                              
                              
                     ), # Navbar 4, tabPanel
-                    tabPanel("Recommendations", "This panel is intentionally left blank")
+                    tabPanel("User Stats",
+                             mainPanel(
+                                 h4("Let's take a look at type of music you listen to overall, based on your top artists"),
+                                 plotOutput("total_sentiment_plot_output")
+                                 
+                             )
+                    )
                     
                 ) # navbarPage
 ) # fluidPage
@@ -199,7 +224,8 @@ server <- function(input, output) {
         data <- popularity_data()
         ggplot(data=data, aes(x=reorder(name, -popularity), y=popularity)) +
             geom_bar(stat="identity", width = .5, fill = "#1F51FF") +
-            theme(axis.text.x = element_text(angle = 90)) + 
+            theme(text = element_text(size=15),
+                  axis.text.x = element_text(angle = 90)) + 
             xlab("Artist Name") + ylab("Popularity Score")
     })
     
@@ -225,26 +251,38 @@ server <- function(input, output) {
     output$sentiment_text <- renderText({ input$sentiment_type })
     
     output$sentiment_plot_output <- renderPlot({ 
-        text <- input$sentiment_type
+        text1 <- text
+        text <- casefold(input$sentiment_type, upper = FALSE)
         data <- sentiment_data() %>% arrange(desc(.data[[text]]))
         ggplot(data = data, aes(x = .data[[text]], y = fct_rev(album_name), fill = stat(x))) + 
             geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
             scale_fill_viridis_c(name = text, option = "D") + 
             theme_ridges(font_size = 12, center_axis_labels = TRUE) +
             scale_x_continuous(expand = c(0.01, 0)) +
-            labs(title= paste(data[[text]], " by Album", sep=""), y ="Album", x = data[[text]])
+            labs(y ="Album", x = .data[[text]])
     })
     
     output$most_sentiment <- renderText({
-        text <- input$sentiment_type
+        text <- casefold(input$sentiment_type, upper = FALSE)
         data <- sentiment_data() %>% arrange(desc(.data[[text]]))
-        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data[[text]][1], sep="")
+        paste(paste(data$track_name[1], " with a score of ", sep=""), data[[text]][1], sep="")
     })
     
     output$least_sentiment <- renderText({
-        text <- input$sentiment_type
+        text <- casefold(input$sentiment_type, upper = FALSE)
         data <- sentiment_data() %>% arrange(.data[[text]])
-        paste(paste(data$track_name[1], " with a sentiment score of ", sep=""), data[[text]][1], sep="")
+        paste(paste(data$track_name[1], " with a score of ", sep=""), data[[text]][1], sep="")
+    })
+    
+    # TABPANEL #3
+    ## hella important, basically a global variable lowkey
+    
+    output$total_sentiment_plot_output <- renderPlot({
+        names <- popularity_data()$name
+        for (i in names) {
+            dynamicVariableName <- paste("fav_artist", i, sep="_")
+            assign(dynamicVariableName, as.data.frame(audio_features_fav_artist(i)))
+        }
     })
     
     # output$energy_plot_output <- renderPlot({ 
