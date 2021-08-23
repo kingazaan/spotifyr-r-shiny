@@ -199,7 +199,7 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  plotOutput("energy_vs_positivity_plot_output"),
                                  tags$style("#energy_vs_positivity
                                     {font-size: 24px;
-                                    color: DeepSkyBlue;
+                                    color: FloralWhite;
                                     display: block;
                                     text-align: center;
                                     padding-top: 10px;
@@ -322,13 +322,13 @@ server <- function(input, output) {
         top_artist_sentiment_data()
         temp <- cbind(top_artist_sentiment$energy, top_artist_sentiment$positivity) 
         if(mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
-            "You seem to enjoy sad music"
+            "You seem to enjoy sad music :,("
         } else if (mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) > 0.500) {
-            "You seem to enjoy chill music"
+            "You seem to enjoy chill music :)"
         } else if (mean(temp[,1], na.rm = TRUE) > 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
-            "You seem to enjoy aggressive music"
+            "You seem to enjoy aggressive music :("
         } else {
-            "You seem to enjoy joyful music"
+            "You seem to enjoy joyful music :D"
         }
     })
     
