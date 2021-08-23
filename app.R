@@ -51,7 +51,7 @@ fav_artists_datatable <- function() {
 
 # audio features for top artists table function
 audio_features_fav_artist <- function(artist_name) {
-    get_artist_audio_features(artist = "Aesop Rock", return_closest_artist = TRUE) %>% 
+        get_artist_audio_features(artist = artist_name, return_closest_artist = TRUE) %>% 
         rename(positivity = valence) %>% 
         select(.data$artist_name, .data$track_name, .data$album_name, .data$danceability, .data$energy, .data$loudness, .data$speechiness, .data$acousticness, .data$liveness, .data$positivity, .data$tempo) %>% 
         distinct(.data$track_name, .keep_all= TRUE)
@@ -166,7 +166,7 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  h6("The highest scoring song for this category is:"),
                                  tags$style("#most_sentiment
                                     {font-size: 20px;
-                                    color: white;
+                                    color: Chartreuse;
                                     display: block;
                                     text-align: right;
                                     padding-bottom: 10px}"),
@@ -174,7 +174,7 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  h6("The lowest scoring song for this category is:"),
                                  tags$style("#least_sentiment
                                     {font-size: 20px;
-                                    color: white;
+                                    color: Chartreuse;
                                     display: block;
                                     text-align: right;
                                     padding-bottom: 10px}"),
@@ -185,7 +185,6 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  # textOutput("most_positive"),
                                  # h5("The least positive song by this artist is:"),
                                  # textOutput("least_positive"),
-                                 
                                  # DT::dataTableOutput("sentiment_table"),
                                  
                                  br(), br()
@@ -196,10 +195,18 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                     tabPanel("User Stats",
                              mainPanel(
                                  h4("Let's take a look at type of music you listen to overall, based on your top artists"),
-                                 plotOutput("total_sentiment_plot_output")
-                                 
-                             )
-                    )
+                                 h3("Positivity vs Energy"),
+                                 plotOutput("energy_vs_positivity_plot_output"),
+                                 tags$style("#energy_vs_positivity
+                                    {font-size: 24px;
+                                    color: DeepSkyBlue;
+                                    display: block;
+                                    text-align: center;
+                                    padding-top: 10px;
+                                    padding-bottom: 10px}"),
+                                 textOutput("energy_vs_positivity")
+                             ) 
+                    ) 
                     
                 ) # navbarPage
 ) # fluidPage
@@ -257,8 +264,8 @@ server <- function(input, output) {
         ggplot(data = data, aes(x = .data[[text]], y = fct_rev(album_name), fill = stat(x))) + 
             geom_density_ridges_gradient(scale = 2, quantile_lines=TRUE, quantiles = 2) +
             scale_fill_viridis_c(name = text, option = "D") + 
-            theme_ridges(font_size = 12, center_axis_labels = TRUE) +
-            scale_x_continuous(expand = c(0.01, 0)) +
+            theme_ridges(font_size = 12, center_axis_labels = TRUE) + 
+            scale_x_continuous(expand = c(0.01, 0)) + 
             labs(y ="Album", x = .data[[text]])
     })
     
@@ -276,12 +283,52 @@ server <- function(input, output) {
     
     # TABPANEL #3
     ## hella important, basically a global variable lowkey
-    
-    output$total_sentiment_plot_output <- renderPlot({
+    top_artist_sentiment_data <- reactive({
         names <- popularity_data()$name
-        for (i in names) {
-            dynamicVariableName <- paste("fav_artist", i, sep="_")
-            assign(dynamicVariableName, as.data.frame(audio_features_fav_artist(i)))
+        top_artist_sentiment <- as.data.frame(audio_features_fav_artist(names[1]))
+        # 2:length(names) for all artists 
+        for (i in 2:10) { 
+            tryCatch(
+                expr = {
+                    top_artist_sentiment <- rbind(top_artist_sentiment, as.data.frame(audio_features_fav_artist(names[i])))
+                },
+                error = function(e){
+                    print(e)
+                }
+            )
+            # dynamicVariableName <- paste("fav_artist", i, sep="_")
+        }
+    })
+    
+    output$energy_vs_positivity_plot_output <- renderPlot({
+        top_artist_sentiment_data()
+        
+        # PLOT EMOTIONAL QUADRANT TOP FOUR ARTISTS
+        ggplot(data = top_artist_sentiment, aes(x = positivity, y = energy, color = artist_name)) +
+            geom_jitter() +
+            geom_vline(xintercept = 0.5) +
+            geom_hline(yintercept = 0.5) +
+            scale_x_continuous(limits = c(0, 1)) +
+            scale_y_continuous(limits = c(0, 1)) +
+            annotate('text', 0.25 / 2, 0.95, label = "Aggressive") +
+            annotate('text', 1.75 / 2, 0.95, label = "Joyful") +
+            annotate('text', 1.75 / 2, 0.05, label = "Chill") +
+            annotate('text', 0.25 / 2, 0.05, label = "Sad") +
+            labs(x= "Positivity", y= "Energy") +
+            ggtitle("Emotional quadrant for Top 10 Artists")
+    })
+    
+    output$energy_vs_positivity <- renderText({
+        top_artist_sentiment_data()
+        temp <- cbind(top_artist_sentiment$energy, top_artist_sentiment$positivity) 
+        if(mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
+            "You seem to enjoy sad music"
+        } else if (mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) > 0.500) {
+            "You seem to enjoy chill music"
+        } else if (mean(temp[,1], na.rm = TRUE) > 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
+            "You seem to enjoy aggressive music"
+        } else {
+            "You seem to enjoy joyful music"
         }
     })
     
