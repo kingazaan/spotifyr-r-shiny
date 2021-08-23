@@ -19,8 +19,14 @@ library(reshape2)
 library(plotly)
 library(ggridges)
 library(httr)
+library(remotes)
 
 # Create functions to make plots
+
+Sys.setenv(SPOTIFY_CLIENT_ID = "99c693033daf48b883ff86660b50d80a")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "9033b67165b24d63b641ac1c76dd7ea8")
+
+access_token <- get_spotify_access_token()
 
 ## Authentification function
 authenticate <- function(id, secret) {
@@ -115,9 +121,14 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  textOutput("validate_message")
                              ), # sidebarPanel
                              mainPanel(
-                                 h1("Header 1"),
-                                 h4("Output 1"),
-                                 verbatimTextOutput("txtout"), # generated from the server
+                                 h1("Welcome to the Spotify User Analysis tool!"),
+                                 h6("Here you can see different analyses on your own music, as well as artists you follow, and what type of music you are interested in. Here are a couple first steps:"),
+                                 br(),
+                                 h6("Step 1: Login with your spotify account at https://developer.spotify.com/dashboard/"),
+                                 h6("Step 2: Create an app, and copy the Client ID and Client Secret"),
+                                 h6("Step 3: Enter them to the sidebar on the left and validate"),
+                                 h6("Step 4: When prompted with the message are you ..., make sure to click NOT YOU and login yourself. Now you're good to go! "),
+                                 # verbatimTextOutput("txtout"), # generated from the server
                              ) # mainPanel
                              
                              
@@ -168,17 +179,21 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                     {font-size: 20px;
                                     color: Chartreuse;
                                     display: block;
-                                    text-align: right;
+                                    text-align: left;
                                     padding-bottom: 10px}"),
                                  textOutput("most_sentiment"),
-                                 h6("The lowest scoring song for this category is:"),
-                                 tags$style("#least_sentiment
-                                    {font-size: 20px;
-                                    color: Chartreuse;
-                                    display: block;
-                                    text-align: right;
-                                    padding-bottom: 10px}"),
-                                 textOutput("least_sentiment"),
+                                 numericInput("most", "", 1),
+                                 h6("Use the dialog box above to see other songs and their scores!"),
+                                 
+                                 # h6("The lowest scoring song for this category is:"),
+                                 # tags$style("#least_sentiment
+                                 #    {font-size: 20px;
+                                 #    color: Chartreuse;
+                                 #    display: block;
+                                 #    text-align: right;
+                                 #    padding-bottom: 10px}"),
+                                 # textOutput("least_sentiment"),
+                                 
                                  # h3("Positivity (Valence)"),
                                  # plotOutput(outputId = "valence_plot_output"),
                                  # h5("The most positive song by this artist is:"),
@@ -195,14 +210,20 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                     tabPanel("User Stats",
                              mainPanel(
                                  h4("Let's take a look at type of music you listen to overall, based on your top artists"),
+                                 tags$style(
+                                     "p { 
+                                      color: red;
+                                     }"
+                                 ),
+                                 p("Be patient, this could take a minute or two"),
                                  h3("Positivity vs Energy"),
                                  plotOutput("energy_vs_positivity_plot_output"),
                                  tags$style("#energy_vs_positivity
-                                    {font-size: 24px;
-                                    color: FloralWhite;
+                                    {font-size: 40px;
+                                    color: Yellow;
                                     display: block;
                                     text-align: center;
-                                    padding-top: 10px;
+                                    padding-top: 25px;
                                     padding-bottom: 10px}"),
                                  textOutput("energy_vs_positivity")
                              ) 
@@ -272,14 +293,14 @@ server <- function(input, output) {
     output$most_sentiment <- renderText({
         text <- casefold(input$sentiment_type, upper = FALSE)
         data <- sentiment_data() %>% arrange(desc(.data[[text]]))
-        paste(paste(data$track_name[1], " with a score of ", sep=""), data[[text]][1], sep="")
+        paste(paste(data$track_name[input$most], " with a score of ", sep=""), data[[text]][input$most], sep="")
     })
     
-    output$least_sentiment <- renderText({
-        text <- casefold(input$sentiment_type, upper = FALSE)
-        data <- sentiment_data() %>% arrange(.data[[text]])
-        paste(paste(data$track_name[1], " with a score of ", sep=""), data[[text]][1], sep="")
-    })
+    # output$least_sentiment <- renderText({
+    #     text <- casefold(input$sentiment_type, upper = FALSE)
+    #     data <- sentiment_data() %>% arrange(.data[[text]])
+    #     paste(paste(data$track_name[1], " with a score of ", sep=""), data[[text]][1], sep="")
+    # })
     
     # TABPANEL #3
     ## hella important, basically a global variable lowkey
@@ -298,29 +319,28 @@ server <- function(input, output) {
             )
             # dynamicVariableName <- paste("fav_artist", i, sep="_")
         }
+        return (top_artist_sentiment)
     })
     
     output$energy_vs_positivity_plot_output <- renderPlot({
-        top_artist_sentiment_data()
-        
         # PLOT EMOTIONAL QUADRANT TOP FOUR ARTISTS
-        ggplot(data = top_artist_sentiment, aes(x = positivity, y = energy, color = artist_name)) +
+        ggplot(data = top_artist_sentiment_data(), aes(x = positivity, y = energy, color = artist_name)) +
             geom_jitter() +
             geom_vline(xintercept = 0.5) +
             geom_hline(yintercept = 0.5) +
             scale_x_continuous(limits = c(0, 1)) +
             scale_y_continuous(limits = c(0, 1)) +
-            annotate('text', 0.25 / 2, 0.95, label = "Aggressive") +
-            annotate('text', 1.75 / 2, 0.95, label = "Joyful") +
-            annotate('text', 1.75 / 2, 0.05, label = "Chill") +
-            annotate('text', 0.25 / 2, 0.05, label = "Sad") +
+            annotate('text', 0.25 / 2, 1, label = "Aggressive") +
+            annotate('text', 1.75 / 2, 1, label = "Joyful") +
+            annotate('text', 1.75 / 2, 0, label = "Chill") +
+            annotate('text', 0.25 / 2, 0, label = "Sad") +
             labs(x= "Positivity", y= "Energy") +
             ggtitle("Emotional quadrant for Top 10 Artists")
     })
     
     output$energy_vs_positivity <- renderText({
-        top_artist_sentiment_data()
-        temp <- cbind(top_artist_sentiment$energy, top_artist_sentiment$positivity) 
+        temp1 <- top_artist_sentiment_data()
+        temp <- cbind(temp1$energy, temp1$positivity) 
         if(mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
             "You seem to enjoy sad music :,("
         } else if (mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) > 0.500) {
