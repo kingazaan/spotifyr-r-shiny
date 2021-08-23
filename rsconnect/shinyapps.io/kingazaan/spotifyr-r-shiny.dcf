@@ -1,0 +1,13 @@
+name: spotifyr-r-shiny
+title: spotifyr-r-shiny
+username:
+account: kingazaan
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 4525659
+bundleId: 4955353
+url: https://kingazaan.shinyapps.io/spotifyr-r-shiny/
+when: 1629752399.76332
+lastSyncTime: 1629752399.76332
+asMultiple: FALSE
+asStatic: FALSE

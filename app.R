@@ -21,6 +21,7 @@ library(ggridges)
 library(httr)
 library(remotes)
 
+
 # Create functions to make plots
 
 Sys.setenv(SPOTIFY_CLIENT_ID = "99c693033daf48b883ff86660b50d80a")
