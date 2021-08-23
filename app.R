@@ -7,7 +7,7 @@
 # 
 # Sample client id and server:
 # id = "a9ddd67c426941c78b7744913d619b05"
-# secret = "6d82d70a9be9495f8c77ca1dc912c9b1"
+# secret = "f30e0baf03b44eda92dbaf509b23d932"
 
 # Load R packages
 library(shiny)
@@ -115,8 +115,8 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                     tabPanel("Intro",
                              sidebarPanel(
                                  tags$h3("Input:"),
-                                 textInput("id", "Client ID:", ""), # txt1 sent to the server
-                                 textInput("secret", "Client Secret:", ""),    # txt2 sent to the server
+                                 textInput("id", "Client ID: ", ""), # txt1 sent to the server
+                                 textInput("secret", "Client Secret: ", ""),    # txt2 sent to the server
                                  actionButton("btn", "validate"),
                                  textOutput("validate_message")
                              ), # sidebarPanel
@@ -124,10 +124,12 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                  h1("Welcome to the Spotify User Analysis tool!"),
                                  h6("Here you can see different analyses on your own music, as well as artists you follow, and what type of music you are interested in. Here are a couple first steps:"),
                                  br(),
-                                 h6("Step 1: Login with your spotify account at https://developer.spotify.com/dashboard/"),
-                                 h6("Step 2: Create an app, and copy the Client ID and Client Secret"),
-                                 h6("Step 3: Enter them to the sidebar on the left and validate"),
-                                 h6("Step 4: When prompted with the message are you ..., make sure to click NOT YOU and login yourself. Now you're good to go! "),
+                                 h6("Step 1: Go to https://developer.spotify.com/dashboard/ and login with your Spotify information"),
+                                 h6("Step 2: Create an app with name and description temp, then find the client ID and Client Secret"),
+                                 h6("Step 3: Copy and paste the ID and Secret into the designated dialog boxes, and click validate."),
+                                 h6("Step 4: Allow spotify to authenticate your account"),
+                                 h6("Now you should be good to go! Click one of the tabs above and learn more about your music"),
+                                 # h6("Step 4: When prompted with the message are you ..., make sure to click NOT YOU and login yourself. Now you're good to go! "),
                                  # verbatimTextOutput("txtout"), # generated from the server
                              ) # mainPanel
                              
@@ -225,7 +227,17 @@ ui <- fluidPage(theme = shinytheme("cyborg"),
                                     text-align: center;
                                     padding-top: 25px;
                                     padding-bottom: 10px}"),
-                                 textOutput("energy_vs_positivity")
+                                 textOutput("energy_vs_positivity"),
+                                 h3("Speechiness vs Danceability"),
+                                 plotOutput("speechiness_vs_danceability_plot_output"),
+                                 tags$style("#speechiness_vs_danceability
+                                    {font-size: 40px;
+                                    color: Yellow;
+                                    display: block;
+                                    text-align: center;
+                                    padding-top: 25px;
+                                    padding-bottom: 10px}"), 
+                                 textOutput("speechiness_vs_danceability")
                              ) 
                     ) 
                     
@@ -305,7 +317,7 @@ server <- function(input, output) {
     # TABPANEL #3
     ## hella important, basically a global variable lowkey
     top_artist_sentiment_data <- reactive({
-        names <- popularity_data()$name
+        names <- rev(popularity_data()$name)
         top_artist_sentiment <- as.data.frame(audio_features_fav_artist(names[1]))
         # 2:length(names) for all artists 
         for (i in 2:10) { 
@@ -349,6 +361,36 @@ server <- function(input, output) {
             "You seem to enjoy aggressive music :("
         } else {
             "You seem to enjoy joyful music :D"
+        }
+    })
+    
+    output$speechiness_vs_danceability_plot_output <- renderPlot({
+        # PLOT EMOTIONAL QUADRANT TOP FOUR ARTISTS
+        ggplot(data = top_artist_sentiment_data(), aes(x = acousticness, y = danceability, color = artist_name)) +
+            geom_jitter() +
+            geom_vline(xintercept = 0.5) +
+            geom_hline(yintercept = 0.5) +
+            scale_x_continuous(limits = c(0, 1)) +
+            scale_y_continuous(limits = c(0, 1)) +
+            annotate('text', 0.25 / 2, 1, label = "Hip-Hop/Club") +
+            annotate('text', 1.75 / 2, 1, label = "Rock/Metal") +
+            annotate('text', 1.75 / 2, 0, label = "Lyrical Rap") +
+            annotate('text', 0.25 / 2, 0, label = "Smooth Instrument-Based") +
+            labs(x= "acousticness", y= "danceability") +
+            ggtitle("Music Genre for Top 10 Artists")
+    })
+    
+    output$speechiness_vs_danceability <- renderText({
+        temp1 <- top_artist_sentiment_data()
+        temp <- cbind(temp1$acousticness, temp1$danceability) 
+        if(mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
+            "You seem to enjoy more singing-type music such as jazz or classical, not upbeat"
+        } else if (mean(temp[,1], na.rm = TRUE) > 0.500 & mean(temp[,2], na.rm = TRUE) < 0.500) {
+            "You seem to enjoy faster, more wordy music such as rap music or spoken word music with minimal instruments"
+        } else if (mean(temp[,1], na.rm = TRUE) < 0.500 & mean(temp[,2], na.rm = TRUE) > 0.500) {
+            "You seem to enjoy music you can vibe to, with an upbeat temp and more singing"
+        } else {
+            "You seem to enjoy faster-paced Rap music or very lyrical rock music"
         }
     })
     
