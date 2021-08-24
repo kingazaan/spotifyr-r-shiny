@@ -6,7 +6,7 @@
 ### Step 3: Copy and paste the ID and Secret into the designated dialog boxes, and click validate.
 ### Step 4: Allow spotify to authenticate your account
 
-Now you should be good to go! Click one of the tabs above and learn more about your music
+Now you should be good to go! Click one of the tabs and learn more about your music
 
 Link to site (currently down):
 https://kingazaan.shinyapps.io/spotifyr-r-shiny/
