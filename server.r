@@ -1,5 +1,5 @@
 # server size
-options(shiny.maxRequestSize=30*1024^2)
+# options(shiny.maxRequestSize=30*1024^2)
 
 ## Authentification function
 authenticate <- function(id, secret) {

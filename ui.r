@@ -12,8 +12,8 @@ library(remotes)
 
 # Create functions to make plots
 
-Sys.setenv(SPOTIFY_CLIENT_ID = "99c693033daf48b883ff86660b50d80a")
-Sys.setenv(SPOTIFY_CLIENT_SECRET = "9033b67165b24d63b641ac1c76dd7ea8")
+Sys.setenv(SPOTIFY_CLIENT_ID = "a9ddd67c426941c78b7744913d619b05")
+Sys.setenv(SPOTIFY_CLIENT_SECRET = "42e668de12ca4b1abd81cee80f060846")
 
 access_token <- get_spotify_access_token()
 
