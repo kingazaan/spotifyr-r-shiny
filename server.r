@@ -1,3 +1,82 @@
+# server size
+options(shiny.maxRequestSize=30*1024^2)
+
+## Authentification function
+authenticate <- function(id, secret) {
+  # authenticate the spotify client stuff
+  Sys.setenv(SPOTIFY_CLIENT_ID = id)
+  Sys.setenv(SPOTIFY_CLIENT_SECRET = secret)
+  
+  access_token <- get_spotify_access_token()
+}
+
+## favorite artists table function
+fav_artists <- function() {
+  as.data.frame(get_my_top_artists_or_tracks(type = 'artists', 
+                                             time_range = 'long_term', 
+                                             limit = 25) %>% 
+                  rename(followers = followers.total) %>% 
+                  select(.data$genres, .data$name, .data$popularity, .data$followers) %>% 
+                  rowwise %>% 
+                  mutate(genres = paste(.data$genres, collapse = ', ')) %>% 
+                  ungroup
+  )
+}
+
+## datatableify fav_artists
+fav_artists_datatable <- function() {
+  datatable(fav_artists()) %>% formatStyle(c('name', 'genres', 'popularity', 'followers'), color = 'black')
+}
+
+# audio features for top artists table function
+audio_features_fav_artist <- function(artist_name) {
+  get_artist_audio_features(artist = artist_name, return_closest_artist = TRUE) %>% 
+    rename(positivity = valence) %>% 
+    select(.data$artist_name, .data$track_name, .data$album_name, .data$danceability, .data$energy, .data$loudness, .data$speechiness, .data$acousticness, .data$liveness, .data$positivity, .data$tempo) %>% 
+    distinct(.data$track_name, .keep_all= TRUE)
+}
+
+## datatablify audio_features
+sentiment_datatable <- function(artist_name) {
+  datatable(audio_features_fav_artist(artist_name)) %>% formatStyle(c('artist_name', 'track_name', 'album_name', 'danceability', 'energy', 'loudness', 'speechiness', 'acousticness', 'liveness', 'positivity', 'tempo') ,color = 'black')
+}
+
+# ## favorite tracks table function
+# fav_tracks <- function() {
+#     ceiling(get_my_top_artists_or_tracks(type = 'tracks', include_meta_info = TRUE)[['total']] / 50) %>%
+#         seq() %>%
+#         map(function(x) {
+#             get_my_top_artists_or_tracks(type = 'tracks', limit = 50, offset = (x - 1) * 50)
+#         }) %>% reduce(rbind)
+# }
+
+## favorite artists join from previous function
+# fav_tracks_artists <- function(prev) {
+#     temp <-
+#     prev %>%
+#         select(artists) %>%
+#         reduce(rbind) %>%
+#         reduce(rbind) %>%
+#         select(name)
+#     
+#     temp <-
+#     temp %>%
+#         select(name, album.name, popularity)
+#     
+#     prev <- temp %>%
+#         full_join(prev, by = 'id') # %>%
+#        # count(id, sort = TRUE) %>%
+#        # unique() %>%
+#        # select(-id) %>%
+#        # top_n(20, n)
+#     
+#     prev <- prev %>%
+#         full_join(temp, by = 'id') %>%
+#         select(name, name.x, album.name.y, popularity.y)
+#     
+#     return(prev)
+# }
+
 shinyServer(function(input, output, session) {
   
   validate <- eventReactive(input$btn, {authenticate(input$id, input$secret)})
